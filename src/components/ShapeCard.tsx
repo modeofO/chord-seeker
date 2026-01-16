@@ -7,7 +7,7 @@ interface Props {
   onPlay: (shape: RuntimeChordShape) => void
 }
 
-function collectRootFrets(shape: RuntimeChordShape) {
+function collectRootFrets(shape: RuntimeChordShape): number[] {
   const frets = Object.values(shape.stringStates)
     .filter((state) => state.interval === 'R' && !state.isMuted && state.fret !== null)
     .map((state) => state.fret as number)
@@ -18,17 +18,22 @@ export function ShapeCard({ shape, quality, onPlay }: Props) {
   const rootFrets = collectRootFrets(shape)
 
   return (
-    <article className="shape-card" style={{ borderColor: quality.accent }}>
+    <article className="shape-card">
       <header className="shape-card-header">
-        <div>
-          <p className="shape-tag">{quality.label}</p>
+        <div className="shape-card-info">
+          <span className="shape-tag">{quality.label}</span>
           <h3>{shape.displayName}</h3>
           <p className="shape-description">{shape.description}</p>
         </div>
-        <button className="play-button" onClick={() => onPlay(shape)}>
-          Play chord
+        <button
+          className="play-button"
+          onClick={() => onPlay(shape)}
+          aria-label={`Play ${shape.displayName} chord`}
+        >
+          Play
         </button>
       </header>
+
       <div className="shape-visual">
         <Fretboard shape={shape} />
         {rootFrets.length > 0 && (
