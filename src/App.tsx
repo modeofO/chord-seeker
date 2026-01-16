@@ -6,7 +6,6 @@ import { CHORD_QUALITIES, QUALITY_MAP } from './data/chordQualities'
 import { buildChordShapes } from './utils/chordUtils'
 import type { ChordQuality, NoteId, RuntimeChordShape } from './types/music'
 import { ChordAudioEngine, orderNotesForStrum } from './audio/engine'
-import { GuitarScene } from './components/GuitarScene'
 
 export default function App() {
   const [root, setRoot] = useState<NoteId>('E')
@@ -35,9 +34,10 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <section className="guitar-stage">
-        <GuitarScene shapes={shapes} accentColor={qualityDef.accent} />
-      </section>
+      <header className="app-header">
+        <h1 className="app-title">Chord Seeker</h1>
+        <p className="app-subtitle">Explore guitar chord shapes and voicings</p>
+      </header>
 
       <ChordControls
         root={root}
@@ -51,10 +51,15 @@ export default function App() {
       <section className="shape-grid">
         {shapes.length ? (
           shapes.map((shape) => (
-            <ShapeCard key={shape.instanceId} shape={shape} quality={qualityDef} onPlay={handlePlay} />
+            <ShapeCard
+              key={shape.instanceId}
+              shape={shape}
+              quality={qualityDef}
+              onPlay={handlePlay}
+            />
           ))
         ) : (
-          <p className="empty-state">No shapes available for this selection yet.</p>
+          <p className="empty-state">No shapes available for this chord yet.</p>
         )}
       </section>
     </div>
