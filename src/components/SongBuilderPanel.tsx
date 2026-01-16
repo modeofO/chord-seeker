@@ -31,6 +31,7 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
   const [currentMeasure, setCurrentMeasure] = useState(0)
   const [currentSubdivision, setCurrentSubdivision] = useState(0)
   const [customBpm, setCustomBpm] = useState<number>(SPEED_TO_BPM[speed])
+  const [bpmInputValue, setBpmInputValue] = useState<string>(String(SPEED_TO_BPM[speed]))
   const [editingPosition, setEditingPosition] = useState<{
     measureIndex: number
     subdivisionIndex: number
@@ -59,7 +60,38 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
   // Sync customBpm with speed when speed prop changes
   useEffect(() => {
     setCustomBpm(SPEED_TO_BPM[speed])
+    setBpmInputValue(String(SPEED_TO_BPM[speed]))
   }, [speed])
+
+  // Sync bpmInputValue when customBpm changes (e.g., from slider)
+  useEffect(() => {
+    setBpmInputValue(String(customBpm))
+  }, [customBpm])
+
+  // Handle BPM input change (while typing - no validation yet)
+  const handleBpmInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBpmInputValue(e.target.value)
+  }
+
+  // Apply BPM when input loses focus or Enter is pressed
+  const applyBpmFromInput = () => {
+    const value = parseInt(bpmInputValue, 10)
+    if (!isNaN(value)) {
+      const clampedValue = Math.max(60, Math.min(240, value))
+      setCustomBpm(clampedValue)
+      setBpmInputValue(String(clampedValue))
+    } else {
+      // Reset to current BPM if invalid
+      setBpmInputValue(String(customBpm))
+    }
+  }
+
+  const handleBpmKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      applyBpmFromInput()
+      ;(e.target as HTMLInputElement).blur()
+    }
+  }
 
   // Generate riff when progression, root, or style changes
   useEffect(() => {
@@ -326,11 +358,13 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
                     className="bpm-slider"
                   />
                   <input
-                    type="number"
-                    min="60"
-                    max="240"
-                    value={customBpm}
-                    onChange={(e) => setCustomBpm(Math.max(60, Math.min(240, Number(e.target.value))))}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={bpmInputValue}
+                    onChange={handleBpmInputChange}
+                    onBlur={applyBpmFromInput}
+                    onKeyDown={handleBpmKeyDown}
                     className="bpm-input"
                   />
                 </div>
