@@ -5,6 +5,7 @@ import { TriadExplorer } from './components/TriadExplorer'
 import { ProgressionViewer } from './components/ProgressionViewer'
 import { ScaleExplorer } from './components/ScaleExplorer'
 import { CircleOfFifths } from './components/CircleOfFifths'
+import { ChordAnalyzer } from './components/ChordAnalyzer'
 import { DarkModeToggle } from './components/DarkModeToggle'
 import { NOTE_OPTIONS } from './data/notes'
 import { CHORD_QUALITIES, QUALITY_MAP } from './data/chordQualities'
@@ -121,6 +122,8 @@ export default function App() {
         onRootChange={handleRootChange}
         onQualityChange={handleQualityChange}
       />
+
+      <ChordAnalyzer />
     </div>
   )
 }
