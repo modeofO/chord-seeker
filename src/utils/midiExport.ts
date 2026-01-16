@@ -1,5 +1,5 @@
 import { STRING_TUNINGS } from '../data/notes'
-import type { ProgressionRiff } from '../types/songBuilder'
+import type { ProgressionRiff, Track } from '../types/songBuilder'
 import type { RuntimeChordShape } from '../types/music'
 import { buildChordShapes } from './chordUtils'
 
@@ -282,6 +282,118 @@ export function exportChordsToMidi(riff: ProgressionRiff): Uint8Array {
   ]
 
   return new Uint8Array([...header, ...trackChunk])
+}
+
+/**
+ * Export multiple tracks as a Format 1 MIDI file
+ * Each track becomes a separate MIDI track
+ */
+export function exportTracksToMidi(tracks: Track[], bpm: number): Uint8Array {
+  const allTrackChunks: number[][] = []
+  const ticksPerMeasure = TICKS_PER_BEAT * 4
+
+  // Track 0: Tempo track (required for Format 1)
+  const tempoTrackEvents: number[][] = []
+  tempoTrackEvents.push(createTrackNameEvent('Tempo Track'))
+  tempoTrackEvents.push(createTempoEvent(bpm))
+  allTrackChunks.push(createTrackChunk(tempoTrackEvents))
+
+  // Create a MIDI track for each Track
+  tracks.forEach((track, trackIndex) => {
+    const events: number[][] = []
+    const channel = trackIndex % 16 // MIDI has 16 channels
+
+    // Add track name
+    events.push(createTrackNameEvent(track.name))
+
+    // Collect note events
+    const noteEvents: Array<{
+      time: number
+      type: 'on' | 'off'
+      note: number
+      velocity: number
+    }> = []
+
+    let measureStartTick = 0
+
+    track.riff.chordRiffs.forEach((chordRiff) => {
+      if (track.type === 'chord') {
+        // Export as chord strums
+        const shapes = buildChordShapes(chordRiff.chordRoot, chordRiff.chordQuality)
+        const shape = shapes[0] as RuntimeChordShape | undefined
+
+        if (shape && shape.notesForAudio) {
+          const chordDuration = ticksPerMeasure
+
+          shape.notesForAudio.forEach((noteInfo, index) => {
+            const midiNote = fretToMidi(noteInfo.string, noteInfo.fret)
+            const startTick = measureStartTick + index * 10
+            const endTick = measureStartTick + chordDuration - 10
+            const velocity = Math.round(track.volume * 90)
+
+            noteEvents.push({ time: startTick, type: 'on', note: midiNote, velocity })
+            noteEvents.push({ time: endTick, type: 'off', note: midiNote, velocity: 0 })
+          })
+        }
+      } else {
+        // Export as individual riff notes
+        chordRiff.notes.forEach((note) => {
+          const midiNote = fretToMidi(note.string, note.fret)
+          const startTick = measureStartTick + Math.round(note.startBeat * TICKS_PER_BEAT)
+          const endTick = startTick + Math.round(note.duration * TICKS_PER_BEAT)
+
+          let velocity = Math.round(track.volume * 100)
+          if (note.technique === 'hammer-on' || note.technique === 'pull-off') {
+            velocity = Math.round(velocity * 0.8)
+          } else if (note.technique === 'muted') {
+            velocity = Math.round(velocity * 0.6)
+          }
+
+          noteEvents.push({ time: startTick, type: 'on', note: midiNote, velocity })
+          noteEvents.push({ time: endTick, type: 'off', note: midiNote, velocity: 0 })
+        })
+      }
+
+      measureStartTick += ticksPerMeasure
+    })
+
+    // Sort events by time
+    noteEvents.sort((a, b) => {
+      if (a.time !== b.time) return a.time - b.time
+      if (a.type !== b.type) return a.type === 'off' ? -1 : 1
+      return 0
+    })
+
+    // Convert to delta times
+    let lastTime = 0
+    noteEvents.forEach((event) => {
+      const deltaTime = event.time - lastTime
+      lastTime = event.time
+
+      if (event.type === 'on') {
+        events.push(createNoteOn(deltaTime, channel, event.note, event.velocity))
+      } else {
+        events.push(createNoteOff(deltaTime, channel, event.note))
+      }
+    })
+
+    allTrackChunks.push(createTrackChunk(events))
+  })
+
+  // Header chunk for Format 1 (multiple tracks)
+  const header = [
+    0x4d, 0x54, 0x68, 0x64, // "MThd"
+    ...writeInt32(6), // Header length
+    ...writeInt16(1), // Format 1 (multi-track)
+    ...writeInt16(allTrackChunks.length), // Number of tracks
+    ...writeInt16(TICKS_PER_BEAT) // Ticks per beat
+  ]
+
+  // Combine all chunks
+  const midiData = [...header]
+  allTrackChunks.forEach(chunk => midiData.push(...chunk))
+
+  return new Uint8Array(midiData)
 }
 
 /**

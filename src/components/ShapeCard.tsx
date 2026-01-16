@@ -26,7 +26,7 @@ export function ShapeCard({ shape, quality, onPlay }: Props) {
           <p className="shape-description">{shape.description}</p>
         </div>
         <button
-          className="play-button"
+          className="btn btn-primary btn-play"
           onClick={() => onPlay(shape)}
           aria-label={`Play ${shape.displayName} chord`}
         >

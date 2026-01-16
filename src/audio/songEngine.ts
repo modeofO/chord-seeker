@@ -1,7 +1,7 @@
 import { STRING_TUNINGS } from '../data/notes'
 import type { GuitarString, NoteId, ChordQuality } from '../types/music'
 import type { RuntimeChordShape } from '../types/music'
-import type { ProgressionRiff, TabSheet, Technique } from '../types/songBuilder'
+import type { ProgressionRiff, TabSheet, Technique, Track } from '../types/songBuilder'
 import { buildChordShapes } from '../utils/chordUtils'
 import { orderNotesForStrum } from './engine'
 
@@ -14,6 +14,7 @@ export interface NoteToPlay {
 
 interface ScheduledEvent {
   type: 'chord' | 'riff'
+  trackId: string
   time: number
   notes: NoteToPlay[]
   duration: number
@@ -23,6 +24,10 @@ const midiToFrequency = (midi: number) => 440 * Math.pow(2, (midi - 69) / 12)
 
 export class SongAudioEngine {
   private ctx: AudioContext | null = null
+  private masterGain: GainNode | null = null
+  private trackGains: Map<string, GainNode> = new Map()
+  private trackMuted: Map<string, boolean> = new Map()
+  // Legacy gain nodes for single-track preview mode
   private chordGain: GainNode | null = null
   private riffGain: GainNode | null = null
   private activeNodes: Array<{ osc: OscillatorNode; gain: GainNode }> = []
@@ -38,24 +43,128 @@ export class SongAudioEngine {
   private ensureContext() {
     if (!this.ctx) {
       this.ctx = new AudioContext()
-      // Create separate gain nodes for chords and riff
+
+      // Create master gain node
+      this.masterGain = this.ctx.createGain()
+      this.masterGain.gain.value = 0.8
+      this.masterGain.connect(this.ctx.destination)
+
+      // Create legacy gain nodes for single-track preview mode
       this.chordGain = this.ctx.createGain()
       this.chordGain.gain.value = 0.3 // Quieter for backing
-      this.chordGain.connect(this.ctx.destination)
+      this.chordGain.connect(this.masterGain)
 
       this.riffGain = this.ctx.createGain()
       this.riffGain.gain.value = 0.6 // Louder for melody
-      this.riffGain.connect(this.ctx.destination)
+      this.riffGain.connect(this.masterGain)
     }
     return this.ctx
   }
 
   /**
+   * Create or get a gain node for a specific track
+   */
+  createTrackAudio(trackId: string, volume: number = 0.7): GainNode {
+    const ctx = this.ensureContext()
+
+    if (this.trackGains.has(trackId)) {
+      const gain = this.trackGains.get(trackId)!
+      gain.gain.value = volume
+      return gain
+    }
+
+    const gain = ctx.createGain()
+    gain.gain.value = volume
+    gain.connect(this.masterGain!)
+    this.trackGains.set(trackId, gain)
+    this.trackMuted.set(trackId, false)
+    return gain
+  }
+
+  /**
+   * Remove a track's audio node
+   */
+  removeTrackAudio(trackId: string): void {
+    const gain = this.trackGains.get(trackId)
+    if (gain) {
+      gain.disconnect()
+      this.trackGains.delete(trackId)
+      this.trackMuted.delete(trackId)
+    }
+  }
+
+  /**
+   * Set volume for a specific track
+   */
+  setTrackVolume(trackId: string, volume: number): void {
+    const gain = this.trackGains.get(trackId)
+    if (gain) {
+      gain.gain.value = volume
+    }
+  }
+
+  /**
+   * Set muted state for a specific track
+   */
+  setTrackMuted(trackId: string, muted: boolean): void {
+    this.trackMuted.set(trackId, muted)
+    const gain = this.trackGains.get(trackId)
+    if (gain) {
+      // Store the volume before muting or restore it
+      if (muted) {
+        gain.gain.value = 0
+      }
+    }
+  }
+
+  /**
+   * Update solo states - when any track is soloed, only soloed tracks play
+   */
+  updateSoloState(tracks: Track[]): void {
+    const anySoloed = tracks.some(t => t.isSoloed)
+
+    tracks.forEach(track => {
+      const gain = this.trackGains.get(track.id)
+      if (!gain) return
+
+      if (anySoloed) {
+        // Only soloed tracks should be audible
+        if (track.isSoloed && !track.isMuted) {
+          gain.gain.value = track.volume
+        } else {
+          gain.gain.value = 0
+        }
+      } else {
+        // No solo - respect mute states
+        if (track.isMuted) {
+          gain.gain.value = 0
+        } else {
+          gain.gain.value = track.volume
+        }
+      }
+    })
+  }
+
+  /**
+   * Set master volume
+   */
+  setMasterVolume(volume: number): void {
+    if (this.masterGain) {
+      this.masterGain.gain.value = volume
+    }
+  }
+
+  /**
    * Schedule a chord to play at a specific time
    */
-  private scheduleChord(notes: NoteToPlay[], startTime: number, duration: number) {
+  private scheduleChord(notes: NoteToPlay[], startTime: number, duration: number, trackId?: string) {
     const ctx = this.ensureContext()
-    if (!this.chordGain) return
+
+    // Determine which gain node to use
+    const targetGain = trackId
+      ? this.trackGains.get(trackId)
+      : this.chordGain
+    if (!targetGain) return
 
     const orderedNotes = orderNotesForStrum(notes)
 
@@ -76,7 +185,7 @@ export class SongAudioEngine {
       gain.gain.exponentialRampToValueAtTime(0.0001, strikeTime + Math.min(duration, 1.5))
 
       osc.connect(gain)
-      gain.connect(this.chordGain!)
+      gain.connect(targetGain)
 
       osc.start(strikeTime)
       osc.stop(strikeTime + duration + 0.1)
@@ -88,22 +197,27 @@ export class SongAudioEngine {
   /**
    * Schedule a single riff note to play at a specific time
    */
-  private scheduleRiffNote(note: NoteToPlay, startTime: number, duration: number) {
+  private scheduleRiffNote(note: NoteToPlay, startTime: number, duration: number, trackId?: string) {
     const ctx = this.ensureContext()
-    if (!this.riffGain) return
+
+    // Determine which gain node to use
+    const targetGain = trackId
+      ? this.trackGains.get(trackId)
+      : this.riffGain
+    if (!targetGain) return
 
     const tuning = STRING_TUNINGS[note.string]
     const technique = note.technique || 'normal'
 
     // Handle muted notes differently
     if (technique === 'muted') {
-      this.scheduleMutedNote(note, startTime)
+      this.scheduleMutedNote(note, startTime, trackId)
       return
     }
 
     // Handle harmonics
     if (technique === 'harmonic') {
-      this.scheduleHarmonicNote(note, startTime, duration)
+      this.scheduleHarmonicNote(note, startTime, duration, trackId)
       return
     }
 
@@ -163,7 +277,7 @@ export class SongAudioEngine {
     }
 
     osc.connect(gain)
-    gain.connect(this.riffGain!)
+    gain.connect(targetGain)
 
     osc.start(startTime)
     osc.stop(startTime + duration + 0.1)
@@ -174,9 +288,13 @@ export class SongAudioEngine {
   /**
    * Schedule a muted/dead note
    */
-  private scheduleMutedNote(note: NoteToPlay, startTime: number) {
+  private scheduleMutedNote(note: NoteToPlay, startTime: number, trackId?: string) {
     const ctx = this.ensureContext()
-    if (!this.riffGain) return
+
+    const targetGain = trackId
+      ? this.trackGains.get(trackId)
+      : this.riffGain
+    if (!targetGain) return
 
     // Create short percussive noise for muted note
     const bufferSize = ctx.sampleRate * 0.05 // 50ms of noise
@@ -201,7 +319,7 @@ export class SongAudioEngine {
 
     source.connect(filter)
     filter.connect(gain)
-    gain.connect(this.riffGain!)
+    gain.connect(targetGain)
 
     source.start(startTime)
   }
@@ -209,9 +327,13 @@ export class SongAudioEngine {
   /**
    * Schedule a harmonic note
    */
-  private scheduleHarmonicNote(note: NoteToPlay, startTime: number, duration: number) {
+  private scheduleHarmonicNote(note: NoteToPlay, startTime: number, duration: number, trackId?: string) {
     const ctx = this.ensureContext()
-    if (!this.riffGain) return
+
+    const targetGain = trackId
+      ? this.trackGains.get(trackId)
+      : this.riffGain
+    if (!targetGain) return
 
     const tuning = STRING_TUNINGS[note.string]
     const baseMidiValue = tuning.midi // Open string
@@ -237,7 +359,7 @@ export class SongAudioEngine {
     gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.min(duration * 2, 1.5))
 
     osc.connect(gain)
-    gain.connect(this.riffGain!)
+    gain.connect(targetGain)
 
     osc.start(startTime)
     osc.stop(startTime + duration + 0.5)
@@ -246,7 +368,7 @@ export class SongAudioEngine {
   }
 
   /**
-   * Build schedule from progression riff and chord shapes
+   * Build schedule from progression riff and chord shapes (legacy single-track mode)
    */
   scheduleProgression(riff: ProgressionRiff, _tabSheet: TabSheet): void {
     this.scheduledEvents = []
@@ -264,6 +386,7 @@ export class SongAudioEngine {
       if (chordShape) {
         this.scheduledEvents.push({
           type: 'chord',
+          trackId: '_legacy_chord',
           time: currentTime,
           notes: chordShape.notesForAudio,
           duration: secondsPerMeasure
@@ -277,6 +400,7 @@ export class SongAudioEngine {
 
         this.scheduledEvents.push({
           type: 'riff',
+          trackId: '_legacy_riff',
           time: noteTime,
           notes: [{
             string: note.string,
@@ -296,6 +420,69 @@ export class SongAudioEngine {
   }
 
   /**
+   * Build schedule from multiple tracks
+   */
+  scheduleAllTracks(tracks: Track[], bpm: number): void {
+    this.scheduledEvents = []
+    this.ensureContext()
+
+    const beatsPerSecond = bpm / 60
+    const secondsPerBeat = 1 / beatsPerSecond
+    const secondsPerMeasure = 4 * secondsPerBeat
+
+    // Find the longest track to determine loop duration
+    let maxDuration = 0
+
+    tracks.forEach(track => {
+      // Ensure track has audio node
+      this.createTrackAudio(track.id, track.volume)
+
+      let currentTime = 0
+
+      track.riff.chordRiffs.forEach((chordRiff) => {
+        if (track.type === 'chord') {
+          // Schedule chord strums
+          const chordShape = this.getChordShape(chordRiff.chordRoot, chordRiff.chordQuality)
+          if (chordShape) {
+            this.scheduledEvents.push({
+              type: 'chord',
+              trackId: track.id,
+              time: currentTime,
+              notes: chordShape.notesForAudio,
+              duration: secondsPerMeasure
+            })
+          }
+        } else {
+          // Schedule riff notes
+          chordRiff.notes.forEach((note) => {
+            const noteTime = currentTime + note.startBeat * secondsPerBeat
+            const noteDuration = note.duration * secondsPerBeat
+
+            this.scheduledEvents.push({
+              type: 'riff',
+              trackId: track.id,
+              time: noteTime,
+              notes: [{
+                string: note.string,
+                fret: note.fret,
+                technique: note.technique,
+                targetFret: note.targetFret
+              }],
+              duration: noteDuration
+            })
+          })
+        }
+
+        currentTime += secondsPerMeasure
+      })
+
+      maxDuration = Math.max(maxDuration, currentTime)
+    })
+
+    this.loopDuration = maxDuration
+  }
+
+  /**
    * Schedule events for a specific loop iteration
    */
   private scheduleLoopEvents(loopIndex: number): void {
@@ -308,11 +495,14 @@ export class SongAudioEngine {
 
       // Only schedule if event is in the future
       if (eventTime >= this.ctx!.currentTime - 0.1) {
+        // Determine trackId - use undefined for legacy mode to use legacy gain nodes
+        const trackId = event.trackId.startsWith('_legacy') ? undefined : event.trackId
+
         if (event.type === 'chord') {
-          this.scheduleChord(event.notes, eventTime, event.duration)
+          this.scheduleChord(event.notes, eventTime, event.duration, trackId)
         } else {
           event.notes.forEach((note) => {
-            this.scheduleRiffNote(note, eventTime, event.duration)
+            this.scheduleRiffNote(note, eventTime, event.duration, trackId)
           })
         }
       }
@@ -336,7 +526,7 @@ export class SongAudioEngine {
   }
 
   /**
-   * Start playback
+   * Start playback (legacy single-track mode)
    */
   play(riff: ProgressionRiff, tabSheet: TabSheet): void {
     const ctx = this.ensureContext()
@@ -357,6 +547,34 @@ export class SongAudioEngine {
 
     // Start beat tracking with loop detection
     this.startBeatTracking(riff.bpm, tabSheet)
+  }
+
+  /**
+   * Start playback of all tracks
+   */
+  playAllTracks(tracks: Track[], tabSheet: TabSheet, bpm: number): void {
+    const ctx = this.ensureContext()
+
+    if (this.isPlaying) {
+      this.pause()
+    }
+
+    // Schedule all tracks (this creates the gain nodes)
+    this.scheduleAllTracks(tracks, bpm)
+
+    // Update solo/mute states AFTER gain nodes are created
+    this.updateSoloState(tracks)
+
+    const playbackOffset = this.pauseTime
+    this.startTime = ctx.currentTime - playbackOffset
+    this.isPlaying = true
+    this.lastScheduledLoop = -1
+
+    // Schedule the first loop
+    this.scheduleLoopEvents(0)
+
+    // Start beat tracking
+    this.startBeatTracking(bpm, tabSheet)
   }
 
   /**

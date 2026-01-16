@@ -1,14 +1,14 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import type { GuitarString, NoteId } from '../types/music'
 import type { ChordProgression, AnimationSpeed } from '../types/progression'
-import type { ProgressionRiff, RiffStyle, TabSheet } from '../types/songBuilder'
+import type { ProgressionRiff, RiffStyle, TabSheet, Track, TrackType } from '../types/songBuilder'
 import { TabDisplay } from './TabDisplay'
 import { generateProgressionRiff, getAvailableNotesAtPosition, addRiffNote, removeRiffNote } from '../utils/riffGenerator'
 import { riffToTabSheet } from '../utils/tabFormatter'
 import { SongAudioEngine } from '../audio/songEngine'
-import { SPEED_TO_BPM } from '../types/songBuilder'
+import { SPEED_TO_BPM, TRACK_COLORS } from '../types/songBuilder'
 import { QUALITY_MAP } from '../data/chordQualities'
-import { exportRiffToMidi, exportChordsToMidi, downloadMidi, generateMidiFilename } from '../utils/midiExport'
+import { exportRiffToMidi, exportChordsToMidi, downloadMidi, generateMidiFilename, exportTracksToMidi } from '../utils/midiExport'
 
 interface Props {
   isOpen: boolean
@@ -38,6 +38,11 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
     subdivisionIndex: number
     stringId: GuitarString
   } | null>(null)
+
+  // Track state
+  const [tracks, setTracks] = useState<Track[]>([])
+  const [playbackSource, setPlaybackSource] = useState<'preview' | 'tracks'>('preview')
+  const playbackSourceRef = useRef<'preview' | 'tracks'>('preview')
 
   const audioEngineRef = useRef<SongAudioEngine | null>(null)
 
@@ -134,8 +139,22 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
       audioEngineRef.current.pause()
       setIsPlaying(false)
     } else {
-      audioEngineRef.current.play(riff, tabSheet)
+      // Use ref for immediate access to playback source (state might be stale)
+      if (playbackSourceRef.current === 'tracks' && tracks.length > 0) {
+        audioEngineRef.current.playAllTracks(tracks, tabSheet, customBpm)
+      } else {
+        audioEngineRef.current.play(riff, tabSheet)
+      }
       setIsPlaying(true)
+    }
+  }
+
+  // Update playback source (both state for UI and ref for immediate access)
+  const updatePlaybackSource = (source: 'preview' | 'tracks') => {
+    setPlaybackSource(source)
+    playbackSourceRef.current = source
+    if (isPlaying) {
+      handleStop()
     }
   }
 
@@ -232,6 +251,70 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
     downloadMidi(midiData, filename)
   }
 
+  // Export all tracks as MIDI
+  const handleExportAllTracks = () => {
+    if (tracks.length === 0) return
+    const midiData = exportTracksToMidi(tracks, customBpm)
+    const filename = `tracks-${customBpm}bpm.mid`
+    downloadMidi(midiData, filename)
+  }
+
+  // Add current riff to a new track
+  const handleAddToTrack = (type: TrackType) => {
+    if (!riff) return
+
+    const newTrack: Track = {
+      id: `track-${Date.now()}`,
+      name: `${type === 'riff' ? 'Riff' : 'Chords'} ${tracks.length + 1}`,
+      type,
+      riff: JSON.parse(JSON.stringify(riff)), // Deep copy
+      volume: 0.7,
+      isMuted: false,
+      isSoloed: false,
+      color: TRACK_COLORS[tracks.length % TRACK_COLORS.length],
+    }
+
+    setTracks([...tracks, newTrack])
+
+    // Create audio node for new track
+    audioEngineRef.current?.createTrackAudio(newTrack.id, newTrack.volume)
+  }
+
+  // Remove a track
+  const handleRemoveTrack = (trackId: string) => {
+    setTracks(tracks.filter(t => t.id !== trackId))
+    audioEngineRef.current?.removeTrackAudio(trackId)
+  }
+
+  // Toggle track mute
+  const handleToggleMute = (trackId: string) => {
+    setTracks(tracks.map(t => {
+      if (t.id === trackId) {
+        const newMuted = !t.isMuted
+        audioEngineRef.current?.setTrackMuted(trackId, newMuted)
+        return { ...t, isMuted: newMuted }
+      }
+      return t
+    }))
+  }
+
+  // Toggle track solo
+  const handleToggleSolo = (trackId: string) => {
+    const newTracks = tracks.map(t =>
+      t.id === trackId ? { ...t, isSoloed: !t.isSoloed } : t
+    )
+    setTracks(newTracks)
+    audioEngineRef.current?.updateSoloState(newTracks)
+  }
+
+  // Update track volume
+  const handleTrackVolumeChange = (trackId: string, volume: number) => {
+    setTracks(tracks.map(t =>
+      t.id === trackId ? { ...t, volume } : t
+    ))
+    audioEngineRef.current?.setTrackVolume(trackId, volume)
+  }
+
   // Get current chord info
   const currentChordInfo = useMemo(() => {
     if (!riff || currentMeasure >= riff.chordRiffs.length) return null
@@ -255,7 +338,7 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
         {/* Header */}
         <div className="song-builder-header">
           <h2 className="song-builder-title">Song Builder</h2>
-          <button className="song-builder-close" onClick={handleClose}>
+          <button className="btn btn-icon" onClick={handleClose} aria-label="Close">
             &times;
           </button>
         </div>
@@ -281,11 +364,11 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
               <div className="song-builder-controls">
                 <div className="style-selector">
                   <label className="style-label">Riff Style:</label>
-                  <div className="style-options">
+                  <div className="btn-group btn-group-tight" style={{ flexWrap: 'wrap' }}>
                     {RIFF_STYLES.map((style) => (
                       <button
                         key={style.id}
-                        className={`style-btn ${riffStyle === style.id ? 'active' : ''}`}
+                        className={`btn btn-secondary btn-sm ${riffStyle === style.id ? 'active' : ''}`}
                         onClick={() => setRiffStyle(style.id)}
                         title={style.description}
                       >
@@ -295,7 +378,7 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
                   </div>
                 </div>
 
-                <button className="regenerate-btn" onClick={handleRegenerate}>
+                <button className="btn btn-primary" onClick={handleRegenerate}>
                   Regenerate
                 </button>
               </div>
@@ -307,8 +390,8 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
                   <p className="tab-section-hint">Click on positions to add or remove notes</p>
                   <TabDisplay
                     tabSheet={tabSheet}
-                    currentMeasure={currentMeasure}
-                    currentSubdivision={currentSubdivision}
+                    currentMeasure={playbackSourceRef.current === 'tracks' && isPlaying ? -1 : currentMeasure}
+                    currentSubdivision={playbackSourceRef.current === 'tracks' && isPlaying ? -1 : currentSubdivision}
                     onNoteClick={handleNoteClick}
                   />
                 </div>
@@ -323,7 +406,7 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
                       {availableNotes.map((note) => (
                         <button
                           key={`${note.note}-${note.fret}`}
-                          className={`note-picker-btn ${note.interval ? 'chord-tone' : ''}`}
+                          className={`btn btn-secondary note-picker-btn ${note.interval ? 'chord-tone' : ''}`}
                           onClick={() => handleNoteSelect(note)}
                         >
                           <span className="note-picker-note">{note.note}</span>
@@ -335,7 +418,8 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
                       ))}
                     </div>
                     <button
-                      className="note-picker-cancel"
+                      className="btn btn-ghost"
+                      style={{ width: '100%' }}
                       onClick={() => setEditingPosition(null)}
                     >
                       Cancel
@@ -344,16 +428,114 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
                 </div>
               )}
 
+              {/* Add to track buttons */}
+              <div className="add-track-buttons">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => handleAddToTrack('riff')}
+                  disabled={!riff}
+                  title="Add current riff as a new track"
+                >
+                  + Add Riff Track
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => handleAddToTrack('chord')}
+                  disabled={!riff}
+                  title="Add current chords as a new track"
+                >
+                  + Add Chord Track
+                </button>
+              </div>
+
+              {/* Track list */}
+              {tracks.length > 0 && (
+                <div className="track-list">
+                  <h3 className="track-list-title">Tracks</h3>
+                  {tracks.map((track) => (
+                    <div
+                      key={track.id}
+                      className={`track-lane ${track.isMuted ? 'muted' : ''}`}
+                    >
+                      <div
+                        className="track-color-bar"
+                        style={{ backgroundColor: track.color }}
+                      />
+                      <div className="track-info">
+                        <span className="track-name">{track.name}</span>
+                        <span className={`track-type-badge ${track.type}`}>
+                          {track.type === 'riff' ? 'Riff' : 'Chords'}
+                        </span>
+                      </div>
+                      <div className="track-controls">
+                        <button
+                          className={`btn btn-xs track-btn-mute ${track.isMuted ? 'active' : ''}`}
+                          onClick={() => handleToggleMute(track.id)}
+                          title={track.isMuted ? 'Unmute' : 'Mute'}
+                        >
+                          M
+                        </button>
+                        <button
+                          className={`btn btn-xs track-btn-solo ${track.isSoloed ? 'active' : ''}`}
+                          onClick={() => handleToggleSolo(track.id)}
+                          title={track.isSoloed ? 'Unsolo' : 'Solo'}
+                        >
+                          S
+                        </button>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={track.volume}
+                          onChange={(e) => handleTrackVolumeChange(track.id, Number(e.target.value))}
+                          className="track-volume-slider"
+                          title={`Volume: ${Math.round(track.volume * 100)}%`}
+                        />
+                        <button
+                          className="btn btn-xs btn-ghost track-btn-delete"
+                          onClick={() => handleRemoveTrack(track.id)}
+                          title="Remove track"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Bottom controls wrapper */}
               <div className="song-builder-bottom-controls">
+              {/* Playback source toggle */}
+              {tracks.length > 0 && (
+                <div className="playback-source-toggle">
+                  <span className="playback-source-label">Output:</span>
+                  <div className="btn-group btn-group-tight">
+                    <button
+                      className={`btn btn-sm ${playbackSource === 'preview' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => updatePlaybackSource('preview')}
+                    >
+                      Preview
+                    </button>
+                    <button
+                      className={`btn btn-sm ${playbackSource === 'tracks' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => updatePlaybackSource('tracks')}
+                    >
+                      Tracks ({tracks.length})
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Playback controls */}
               <div className="song-builder-playback">
-                <div className="playback-controls">
-                  <button className="playback-btn stop" onClick={handleStop} title="Stop">
+                <div className="btn-group">
+                  <button className="btn btn-icon" onClick={handleStop} title="Stop">
                     <span className="stop-icon" />
                   </button>
                   <button
-                    className={`playback-btn play-pause ${isPlaying ? 'playing' : ''}`}
+                    className="btn btn-icon btn-primary"
                     onClick={handlePlayPause}
                     title={isPlaying ? 'Pause' : 'Play'}
                   >
@@ -398,12 +580,17 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
               {/* Export section */}
               <div className="song-builder-export">
                 <span className="export-label">Export MIDI:</span>
-                <div className="export-buttons">
-                  <button className="export-btn" onClick={handleExportRiff} title="Download riff as MIDI file">
+                <div className="btn-group">
+                  {tracks.length > 0 && (
+                    <button className="btn btn-primary" onClick={handleExportAllTracks} title="Download all tracks as MIDI file">
+                      All Tracks
+                    </button>
+                  )}
+                  <button className="btn btn-secondary" onClick={handleExportRiff} title="Download riff as MIDI file">
                     <span className="export-icon">♪</span>
                     Riff
                   </button>
-                  <button className="export-btn" onClick={handleExportChords} title="Download chords as MIDI file">
+                  <button className="btn btn-secondary" onClick={handleExportChords} title="Download chords as MIDI file">
                     <span className="export-icon">♫</span>
                     Chords
                   </button>

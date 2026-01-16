@@ -6,7 +6,7 @@ interface Props {
 export function DarkModeToggle({ isDark, onToggle }: Props) {
   return (
     <button
-      className="dark-mode-toggle"
+      className="btn btn-icon"
       onClick={onToggle}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}

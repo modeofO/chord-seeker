@@ -45,9 +45,9 @@ export function TriadControls({
       </div>
 
       {/* Navigation and playback controls */}
-      <div className="triad-nav-controls">
+      <div className="btn-group" style={{ justifyContent: 'center' }}>
         <button
-          className="triad-btn triad-btn-nav"
+          className="btn btn-secondary"
           onClick={onPrevious}
           disabled={!hasPositions || currentIndex === 0}
           aria-label="Previous position"
@@ -56,7 +56,7 @@ export function TriadControls({
         </button>
 
         <button
-          className="triad-btn triad-btn-play"
+          className="btn btn-primary"
           onClick={onPlayPause}
           disabled={!hasPositions || hasSinglePosition}
           aria-label={animationState === 'playing' ? 'Pause' : 'Play'}
@@ -65,55 +65,51 @@ export function TriadControls({
         </button>
 
         <button
-          className="triad-btn triad-btn-nav"
+          className="btn btn-secondary"
           onClick={onNext}
           disabled={!hasPositions || currentIndex === totalPositions - 1}
           aria-label="Next position"
         >
           Next
         </button>
+
+        <button
+          className={`btn btn-icon ${enableAudio ? 'active' : ''}`}
+          onClick={() => onAudioToggle(!enableAudio)}
+          disabled={!hasPositions}
+          title={enableAudio ? 'Mute audio' : 'Enable audio'}
+          aria-label={enableAudio ? 'Mute audio' : 'Enable audio'}
+        >
+          <span className="audio-icon">{enableAudio ? '🔊' : '🔇'}</span>
+        </button>
       </div>
 
       {/* Speed selector */}
-      <div className="triad-speed-section">
-        <label className="triad-label">Speed:</label>
-        <div className="triad-speed-group">
+      <div className="speed-section">
+        <label className="speed-label">Speed:</label>
+        <div className="btn-group btn-group-tight">
           <button
-            className={`triad-btn triad-btn-speed ${speed === 'slow' ? 'active' : ''}`}
+            className={`btn btn-secondary btn-sm ${speed === 'slow' ? 'active' : ''}`}
             onClick={() => onSpeedChange('slow')}
             disabled={!hasPositions}
           >
             Slow
           </button>
           <button
-            className={`triad-btn triad-btn-speed ${speed === 'medium' ? 'active' : ''}`}
+            className={`btn btn-secondary btn-sm ${speed === 'medium' ? 'active' : ''}`}
             onClick={() => onSpeedChange('medium')}
             disabled={!hasPositions}
           >
             Medium
           </button>
           <button
-            className={`triad-btn triad-btn-speed ${speed === 'fast' ? 'active' : ''}`}
+            className={`btn btn-secondary btn-sm ${speed === 'fast' ? 'active' : ''}`}
             onClick={() => onSpeedChange('fast')}
             disabled={!hasPositions}
           >
             Fast
           </button>
         </div>
-      </div>
-
-      {/* Audio toggle */}
-      <div className="triad-audio-section">
-        <label className="triad-audio-label">
-          <input
-            type="checkbox"
-            checked={enableAudio}
-            onChange={(e) => onAudioToggle(e.target.checked)}
-            disabled={!hasPositions}
-            className="triad-audio-checkbox"
-          />
-          <span>Play audio</span>
-        </label>
       </div>
     </div>
   )

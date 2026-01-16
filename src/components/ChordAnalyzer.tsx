@@ -98,7 +98,7 @@ export function ChordAnalyzer() {
             </select>
           </div>
 
-          <button className="analyzer-clear-btn" onClick={handleClear}>
+          <button className="btn btn-primary" onClick={handleClear}>
             Clear All
           </button>
         </div>

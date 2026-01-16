@@ -106,3 +106,28 @@ export const SPEED_TO_BPM: Record<AnimationSpeed, number> = {
   medium: 120,
   fast: 160
 }
+
+// Track types for multi-track layering
+export type TrackType = 'riff' | 'chord'
+
+export interface Track {
+  id: string
+  name: string
+  type: TrackType
+  riff: ProgressionRiff
+  volume: number        // 0.0 - 1.0
+  isMuted: boolean
+  isSoloed: boolean
+  color: string         // Visual identifier
+}
+
+export const TRACK_COLORS = [
+  '#6366f1', // Indigo
+  '#8b5cf6', // Violet
+  '#ec4899', // Pink
+  '#f97316', // Orange
+  '#22c55e', // Green
+  '#06b6d4', // Cyan
+  '#eab308', // Yellow
+  '#ef4444', // Red
+]

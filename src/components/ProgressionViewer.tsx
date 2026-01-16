@@ -177,33 +177,34 @@ export function ProgressionViewer({ root, quality, onChordChange, onSongBuilderO
           </div>
 
           {/* Controls */}
-          <div className="progression-controls">
-            <div className="progression-nav-controls">
-              <button className="prog-btn prog-btn-nav" onClick={handlePrevious}>
+          <div className="controls-panel">
+            <div className="btn-group" style={{ justifyContent: 'center' }}>
+              <button className="btn btn-secondary" onClick={handlePrevious}>
                 Previous
               </button>
-              <button className="prog-btn prog-btn-play" onClick={handlePlayPause}>
+              <button className="btn btn-primary" onClick={handlePlayPause}>
                 {animationState === 'playing' ? 'Pause' : 'Play'}
               </button>
-              <button className="prog-btn prog-btn-nav" onClick={handleNext}>
+              <button className="btn btn-secondary" onClick={handleNext}>
                 Next
               </button>
               <button
-                className={`prog-btn prog-btn-audio ${audioEnabled ? 'active' : ''}`}
+                className={`btn btn-icon ${audioEnabled ? 'active' : ''}`}
                 onClick={() => setAudioEnabled(!audioEnabled)}
                 title={audioEnabled ? 'Mute audio' : 'Enable audio'}
+                aria-label={audioEnabled ? 'Mute audio' : 'Enable audio'}
               >
-                {audioEnabled ? '🔊' : '🔇'}
+                <span className="audio-icon">{audioEnabled ? '🔊' : '🔇'}</span>
               </button>
             </div>
 
-            <div className="progression-speed-section">
-              <label className="progression-speed-label">Speed:</label>
-              <div className="progression-speed-group">
+            <div className="speed-section">
+              <label className="speed-label">Speed:</label>
+              <div className="btn-group btn-group-tight">
                 {(['slow', 'medium', 'fast'] as AnimationSpeed[]).map((s) => (
                   <button
                     key={s}
-                    className={`prog-btn prog-btn-speed ${speed === s ? 'active' : ''}`}
+                    className={`btn btn-secondary btn-sm ${speed === s ? 'active' : ''}`}
                     onClick={() => setSpeed(s)}
                   >
                     {s.charAt(0).toUpperCase() + s.slice(1)}
@@ -214,7 +215,7 @@ export function ProgressionViewer({ root, quality, onChordChange, onSongBuilderO
 
             {onSongBuilderOpen && (
               <button
-                className="prog-btn prog-btn-song-builder"
+                className="btn btn-accent btn-full"
                 onClick={() => onSongBuilderOpen(selectedProgression!, speed)}
               >
                 Song Builder
