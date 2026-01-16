@@ -22,13 +22,16 @@ export type GuitarString = 6 | 5 | 4 | 3 | 2 | 1
 
 export type IntervalSymbol =
   | 'R'
+  | 'b2'
+  | '2'
   | 'b3'
   | '3'
   | '4'
-  | '5'
+  | '#4'
   | 'b5'
+  | '5'
   | '#5'
-  | '2'
+  | 'b6'
   | '6'
   | 'b7'
   | '7'

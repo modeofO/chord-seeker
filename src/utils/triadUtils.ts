@@ -6,13 +6,16 @@ import { GUITAR_STRINGS, INDEX_TO_NOTE, NOTE_TO_INDEX, STRING_TUNINGS } from '..
 // Map intervals to semitone offsets from root
 const INTERVAL_TO_SEMITONES: Record<IntervalSymbol, number> = {
   R: 0,
+  'b2': 1,
   '2': 2,
   'b3': 3,
   '3': 4,
   '4': 5,
+  '#4': 6,
   'b5': 6,
   '5': 7,
   '#5': 8,
+  'b6': 8,
   '6': 9,
   'b7': 10,
   '7': 11,

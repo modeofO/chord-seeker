@@ -2,6 +2,8 @@ import { useMemo, useRef, useState } from 'react'
 import { ChordControls } from './components/ChordControls'
 import { ShapeCard } from './components/ShapeCard'
 import { TriadExplorer } from './components/TriadExplorer'
+import { ProgressionViewer } from './components/ProgressionViewer'
+import { ScaleExplorer } from './components/ScaleExplorer'
 import { NOTE_OPTIONS } from './data/notes'
 import { CHORD_QUALITIES, QUALITY_MAP } from './data/chordQualities'
 import { buildChordShapes } from './utils/chordUtils'
@@ -11,6 +13,8 @@ import { ChordAudioEngine, orderNotesForStrum } from './audio/engine'
 export default function App() {
   const [root, setRoot] = useState<NoteId>('E')
   const [quality, setQuality] = useState<ChordQuality>('minor')
+  const [progressionChordRoot, setProgressionChordRoot] = useState<NoteId | undefined>()
+  const [progressionChordQuality, setProgressionChordQuality] = useState<ChordQuality | undefined>()
   const engineRef = useRef<ChordAudioEngine | null>(null)
 
   if (!engineRef.current) {
@@ -31,6 +35,15 @@ export default function App() {
 
   const handleQualityChange = (nextQuality: ChordQuality) => {
     setQuality(nextQuality)
+  }
+
+  const handleProgressionChordChange = (
+    _chordIndex: number,
+    chordRoot: NoteId,
+    chordQuality: ChordQuality
+  ) => {
+    setProgressionChordRoot(chordRoot)
+    setProgressionChordQuality(chordQuality)
   }
 
   return (
@@ -65,6 +78,19 @@ export default function App() {
       </section>
 
       <TriadExplorer root={root} quality={quality} audioEngine={engineRef.current} />
+
+      <ProgressionViewer
+        root={root}
+        quality={quality}
+        onChordChange={handleProgressionChordChange}
+      />
+
+      <ScaleExplorer
+        root={root}
+        quality={quality}
+        syncedRoot={progressionChordRoot}
+        syncedQuality={progressionChordQuality}
+      />
     </div>
   )
 }
