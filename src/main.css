@@ -977,6 +977,18 @@ body {
   border-color: var(--color-amber-glow);
 }
 
+.prog-btn-audio {
+  min-width: 48px;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0.5rem;
+}
+
+.prog-btn-audio.active {
+  background: var(--color-amber-soft);
+  border-color: var(--color-amber);
+}
+
 .progression-speed-section {
   display: flex;
   align-items: center;

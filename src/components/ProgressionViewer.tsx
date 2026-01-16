@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import type { ChordQuality, NoteId } from '../types/music'
 import type { AnimationSpeed, AnimationState, ChordProgression } from '../types/progression'
 import { PROGRESSION_LIST, getProgressionsForQuality } from '../data/progressions'
 import { transposeProgression } from '../utils/scaleUtils'
+import { ChordAudioEngine } from '../audio/engine'
+import { buildChordShapes } from '../utils/chordUtils'
 
 interface Props {
   root: NoteId
@@ -22,6 +24,19 @@ export function ProgressionViewer({ root, quality, onChordChange, onSongBuilderO
   const [currentChordIndex, setCurrentChordIndex] = useState(0)
   const [animationState, setAnimationState] = useState<AnimationState>('paused')
   const [speed, setSpeed] = useState<AnimationSpeed>('medium')
+  const [audioEnabled, setAudioEnabled] = useState(false)
+
+  const audioEngineRef = useRef<ChordAudioEngine | null>(null)
+
+  // Initialize audio engine
+  useEffect(() => {
+    if (!audioEngineRef.current) {
+      audioEngineRef.current = new ChordAudioEngine()
+    }
+    return () => {
+      audioEngineRef.current?.stop()
+    }
+  }, [])
 
   // Get progressions compatible with the current quality
   const compatibleProgressions = getProgressionsForQuality(quality)
@@ -62,16 +77,27 @@ export function ProgressionViewer({ root, quality, onChordChange, onSongBuilderO
     return () => clearInterval(interval)
   }, [animationState, speed, selectedProgression])
 
-  // Notify parent of chord changes
+  // Notify parent of chord changes and play audio if enabled
   useEffect(() => {
-    if (!selectedProgression || !onChordChange) return
+    if (!selectedProgression) return
 
     const transposed = transposeProgression(selectedProgression, root)
     const currentChord = transposed[currentChordIndex]
     if (currentChord) {
-      onChordChange(currentChordIndex, currentChord.note, currentChord.quality)
+      // Notify parent
+      if (onChordChange) {
+        onChordChange(currentChordIndex, currentChord.note, currentChord.quality)
+      }
+
+      // Play audio if enabled
+      if (audioEnabled && audioEngineRef.current) {
+        const shapes = buildChordShapes(currentChord.note, currentChord.quality)
+        if (shapes.length > 0 && shapes[0].notesForAudio) {
+          audioEngineRef.current.play(shapes[0].notesForAudio)
+        }
+      }
     }
-  }, [currentChordIndex, selectedProgression, root, onChordChange])
+  }, [currentChordIndex, selectedProgression, root, onChordChange, audioEnabled])
 
   if (compatibleProgressions.length === 0) {
     return (
@@ -161,6 +187,13 @@ export function ProgressionViewer({ root, quality, onChordChange, onSongBuilderO
               </button>
               <button className="prog-btn prog-btn-nav" onClick={handleNext}>
                 Next
+              </button>
+              <button
+                className={`prog-btn prog-btn-audio ${audioEnabled ? 'active' : ''}`}
+                onClick={() => setAudioEnabled(!audioEnabled)}
+                title={audioEnabled ? 'Mute audio' : 'Enable audio'}
+              >
+                {audioEnabled ? '🔊' : '🔇'}
               </button>
             </div>
 
