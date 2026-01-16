@@ -1,13 +1,15 @@
 import { STRING_TUNINGS } from '../data/notes'
 import type { GuitarString, NoteId, ChordQuality } from '../types/music'
 import type { RuntimeChordShape } from '../types/music'
-import type { ProgressionRiff, TabSheet } from '../types/songBuilder'
+import type { ProgressionRiff, TabSheet, Technique } from '../types/songBuilder'
 import { buildChordShapes } from '../utils/chordUtils'
 import { orderNotesForStrum } from './engine'
 
 export interface NoteToPlay {
   string: GuitarString
   fret: number
+  technique?: Technique
+  targetFret?: number
 }
 
 interface ScheduledEvent {
@@ -30,6 +32,8 @@ export class SongAudioEngine {
   private pauseTime = 0
   private animationFrameId: number | null = null
   private onBeatCallback: ((measure: number, subdivision: number) => void) | null = null
+  private loopDuration = 0
+  private lastScheduledLoop = -1
 
   private ensureContext() {
     if (!this.ctx) {
@@ -89,24 +93,154 @@ export class SongAudioEngine {
     if (!this.riffGain) return
 
     const tuning = STRING_TUNINGS[note.string]
+    const technique = note.technique || 'normal'
+
+    // Handle muted notes differently
+    if (technique === 'muted') {
+      this.scheduleMutedNote(note, startTime)
+      return
+    }
+
+    // Handle harmonics
+    if (technique === 'harmonic') {
+      this.scheduleHarmonicNote(note, startTime, duration)
+      return
+    }
+
     const midiValue = tuning.midi + note.fret
     const freq = midiToFrequency(midiValue)
 
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
 
-    osc.type = 'triangle'
+    // Adjust oscillator type based on technique
+    if (technique === 'hammer-on' || technique === 'pull-off') {
+      osc.type = 'sine' // Smoother attack for legato
+    } else {
+      osc.type = 'triangle'
+    }
 
-    osc.frequency.setValueAtTime(freq, startTime)
-    gain.gain.setValueAtTime(0.0001, startTime)
-    gain.gain.linearRampToValueAtTime(0.6, startTime + 0.008)
-    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.min(duration, 0.8))
+    // Handle slides
+    if ((technique === 'slide-up' || technique === 'slide-down') && note.targetFret !== undefined) {
+      const targetMidiValue = tuning.midi + note.targetFret
+      const targetFreq = midiToFrequency(targetMidiValue)
+
+      osc.frequency.setValueAtTime(freq, startTime)
+      osc.frequency.linearRampToValueAtTime(targetFreq, startTime + duration * 0.8)
+
+      gain.gain.setValueAtTime(0.0001, startTime)
+      gain.gain.linearRampToValueAtTime(0.6, startTime + 0.008)
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.min(duration, 0.9))
+    }
+    // Handle bends
+    else if (technique === 'bend' && note.targetFret !== undefined) {
+      const targetMidiValue = tuning.midi + note.targetFret
+      const targetFreq = midiToFrequency(targetMidiValue)
+
+      osc.frequency.setValueAtTime(freq, startTime)
+      // Bend up smoothly
+      osc.frequency.linearRampToValueAtTime(targetFreq, startTime + duration * 0.3)
+      // Hold the bent note
+      osc.frequency.setValueAtTime(targetFreq, startTime + duration * 0.7)
+
+      gain.gain.setValueAtTime(0.0001, startTime)
+      gain.gain.linearRampToValueAtTime(0.65, startTime + 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.min(duration, 0.9))
+    }
+    // Handle hammer-on/pull-off (softer attack)
+    else if (technique === 'hammer-on' || technique === 'pull-off') {
+      osc.frequency.setValueAtTime(freq, startTime)
+      gain.gain.setValueAtTime(0.0001, startTime)
+      gain.gain.linearRampToValueAtTime(0.5, startTime + 0.002) // Faster, softer attack
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.min(duration, 0.7))
+    }
+    // Normal note
+    else {
+      osc.frequency.setValueAtTime(freq, startTime)
+      gain.gain.setValueAtTime(0.0001, startTime)
+      gain.gain.linearRampToValueAtTime(0.6, startTime + 0.008)
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.min(duration, 0.8))
+    }
 
     osc.connect(gain)
     gain.connect(this.riffGain!)
 
     osc.start(startTime)
     osc.stop(startTime + duration + 0.1)
+
+    this.activeNodes.push({ osc, gain })
+  }
+
+  /**
+   * Schedule a muted/dead note
+   */
+  private scheduleMutedNote(note: NoteToPlay, startTime: number) {
+    const ctx = this.ensureContext()
+    if (!this.riffGain) return
+
+    // Create short percussive noise for muted note
+    const bufferSize = ctx.sampleRate * 0.05 // 50ms of noise
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+    const data = buffer.getChannelData(0)
+
+    // Fill with filtered noise
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.2))
+    }
+
+    const source = ctx.createBufferSource()
+    source.buffer = buffer
+
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'bandpass'
+    filter.frequency.value = 200 + note.string * 50 // Vary by string
+    filter.Q.value = 2
+
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0.3, startTime)
+
+    source.connect(filter)
+    filter.connect(gain)
+    gain.connect(this.riffGain!)
+
+    source.start(startTime)
+  }
+
+  /**
+   * Schedule a harmonic note
+   */
+  private scheduleHarmonicNote(note: NoteToPlay, startTime: number, duration: number) {
+    const ctx = this.ensureContext()
+    if (!this.riffGain) return
+
+    const tuning = STRING_TUNINGS[note.string]
+    const baseMidiValue = tuning.midi // Open string
+
+    // Calculate harmonic frequency based on fret position
+    // Natural harmonics: 12th fret = 2x, 7th fret = 3x, 5th fret = 4x
+    let multiplier = 2
+    if (note.fret === 7 || note.fret === 19) multiplier = 3
+    else if (note.fret === 5 || note.fret === 24) multiplier = 4
+
+    const baseFreq = midiToFrequency(baseMidiValue)
+    const harmonicFreq = baseFreq * multiplier
+
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+
+    osc.type = 'sine' // Pure sine for bell-like harmonic
+    osc.frequency.setValueAtTime(harmonicFreq, startTime)
+
+    // Harmonics have a distinctive bell-like envelope
+    gain.gain.setValueAtTime(0.0001, startTime)
+    gain.gain.linearRampToValueAtTime(0.5, startTime + 0.005)
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.min(duration * 2, 1.5))
+
+    osc.connect(gain)
+    gain.connect(this.riffGain!)
+
+    osc.start(startTime)
+    osc.stop(startTime + duration + 0.5)
 
     this.activeNodes.push({ osc, gain })
   }
@@ -144,12 +278,44 @@ export class SongAudioEngine {
         this.scheduledEvents.push({
           type: 'riff',
           time: noteTime,
-          notes: [{ string: note.string, fret: note.fret }],
+          notes: [{
+            string: note.string,
+            fret: note.fret,
+            technique: note.technique,
+            targetFret: note.targetFret
+          }],
           duration: noteDuration
         })
       })
 
       currentTime += secondsPerMeasure
+    })
+
+    // Store total loop duration
+    this.loopDuration = currentTime
+  }
+
+  /**
+   * Schedule events for a specific loop iteration
+   */
+  private scheduleLoopEvents(loopIndex: number): void {
+    if (!this.ctx) return
+
+    const loopStartTime = this.startTime + loopIndex * this.loopDuration
+
+    this.scheduledEvents.forEach((event) => {
+      const eventTime = loopStartTime + event.time
+
+      // Only schedule if event is in the future
+      if (eventTime >= this.ctx!.currentTime - 0.1) {
+        if (event.type === 'chord') {
+          this.scheduleChord(event.notes, eventTime, event.duration)
+        } else {
+          event.notes.forEach((note) => {
+            this.scheduleRiffNote(note, eventTime, event.duration)
+          })
+        }
+      }
     })
   }
 
@@ -184,23 +350,12 @@ export class SongAudioEngine {
     const playbackOffset = this.pauseTime
     this.startTime = ctx.currentTime - playbackOffset
     this.isPlaying = true
+    this.lastScheduledLoop = -1
 
-    // Schedule all events
-    this.scheduledEvents.forEach((event) => {
-      const eventTime = this.startTime + event.time
+    // Schedule the first loop
+    this.scheduleLoopEvents(0)
 
-      if (eventTime >= ctx.currentTime) {
-        if (event.type === 'chord') {
-          this.scheduleChord(event.notes, eventTime, event.duration)
-        } else {
-          event.notes.forEach((note) => {
-            this.scheduleRiffNote(note, eventTime, event.duration)
-          })
-        }
-      }
-    })
-
-    // Start beat tracking
+    // Start beat tracking with loop detection
     this.startBeatTracking(riff.bpm, tabSheet)
   }
 
@@ -214,14 +369,24 @@ export class SongAudioEngine {
     const subdivisions = tabSheet.measures[0]?.subdivisions || 8
     const subdivisionsPerSecond = (beatsPerSecond * subdivisions) / 4
     const totalMeasures = tabSheet.measures.length
+    const totalSubdivisionsPerLoop = totalMeasures * subdivisions
 
     const update = () => {
       if (!this.isPlaying || !this.ctx) return
 
       const elapsed = this.ctx.currentTime - this.startTime
       const totalSubdivisions = elapsed * subdivisionsPerSecond
-      const subdivisionIndex = Math.floor(totalSubdivisions) % subdivisions
-      const measureIndex = Math.floor(totalSubdivisions / subdivisions) % totalMeasures
+      const currentLoop = Math.floor(totalSubdivisions / totalSubdivisionsPerLoop)
+      const subdivisionInLoop = totalSubdivisions % totalSubdivisionsPerLoop
+      const subdivisionIndex = Math.floor(subdivisionInLoop) % subdivisions
+      const measureIndex = Math.floor(subdivisionInLoop / subdivisions)
+
+      // Schedule next loop ahead of time (when we're 80% through current loop)
+      if (currentLoop > this.lastScheduledLoop) {
+        this.lastScheduledLoop = currentLoop
+        // Schedule the next loop
+        this.scheduleLoopEvents(currentLoop + 1)
+      }
 
       this.onBeatCallback?.(measureIndex, subdivisionIndex)
 
@@ -262,6 +427,7 @@ export class SongAudioEngine {
     this.pause()
     this.pauseTime = 0
     this.scheduledEvents = []
+    this.lastScheduledLoop = -1
   }
 
   /**

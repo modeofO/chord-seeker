@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react'
 import type { GuitarString } from '../types/music'
-import type { TabSheet } from '../types/songBuilder'
+import type { TabSheet, Technique, TabPosition } from '../types/songBuilder'
 
 interface Props {
   tabSheet: TabSheet
@@ -25,8 +25,52 @@ const DISPLAY_ORDER: GuitarString[] = [1, 2, 3, 4, 5, 6]
 // Layout constants
 const MARGIN = { left: 30, right: 20, top: 30, bottom: 20 }
 const STRING_GAP = 20
-const SUBDIVISION_WIDTH = 24
-const MEASURE_GAP = 16
+const SUBDIVISION_WIDTH = 36 // Wider to fit technique suffixes
+const MEASURE_GAP = 20
+
+// Technique symbols for display
+const TECHNIQUE_SYMBOLS: Record<Technique, string> = {
+  'normal': '',
+  'hammer-on': 'h',
+  'pull-off': 'p',
+  'slide-up': '/',
+  'slide-down': '\\',
+  'bend': 'b',
+  'harmonic': '<>',
+  'muted': 'x'
+}
+
+// Get display text for a tab position
+function getTabDisplayText(position: TabPosition): { main: string; suffix: string } {
+  if (position.fret === null) {
+    return { main: '-', suffix: '' }
+  }
+
+  const technique = position.technique || 'normal'
+
+  if (technique === 'muted') {
+    return { main: 'x', suffix: '' }
+  }
+
+  if (technique === 'harmonic') {
+    return { main: `<${position.fret}>`, suffix: '' }
+  }
+
+  const symbol = TECHNIQUE_SYMBOLS[technique]
+  let suffix = ''
+
+  if (position.targetFret !== undefined) {
+    if (technique === 'slide-up' || technique === 'slide-down') {
+      suffix = `${symbol}${position.targetFret}`
+    } else if (technique === 'bend') {
+      suffix = 'b'
+    }
+  } else if (symbol && technique !== 'normal') {
+    suffix = symbol
+  }
+
+  return { main: String(position.fret), suffix }
+}
 
 export function TabDisplay({
   tabSheet,
@@ -158,11 +202,18 @@ export function TabDisplay({
                     const isCurrentBeat =
                       measureIndex === currentMeasure && subdivisionIndex === currentSubdivision
 
+                    // Get technique info if available
+                    const tabPosition = measure.positionsWithTechnique?.[stringId]?.[subdivisionIndex] || { fret }
+                    const displayInfo = tabPosition.fret !== null
+                      ? getTabDisplayText(tabPosition)
+                      : { main: '-', suffix: '' }
+                    const technique = tabPosition.technique || 'normal'
+
                     return (
                       <g
                         key={`note-${measureIndex}-${stringId}-${subdivisionIndex}`}
                         onClick={() => handleClick(measureIndex, subdivisionIndex, stringId)}
-                        className="tab-note-group"
+                        className={`tab-note-group ${technique !== 'normal' ? `technique-${technique}` : ''}`}
                         style={{ cursor: onNoteClick ? 'pointer' : 'default' }}
                       >
                         {/* Clickable area */}
@@ -176,22 +227,34 @@ export function TabDisplay({
 
                         {fret !== null ? (
                           <>
-                            {/* Background circle for note */}
-                            <circle
-                              cx={x}
-                              cy={y}
-                              r={8}
-                              className={`tab-note-bg ${isCurrentBeat ? 'active' : ''}`}
+                            {/* Background for note */}
+                            <rect
+                              x={x - 12}
+                              y={y - 9}
+                              width={displayInfo.suffix ? 32 : 24}
+                              height={18}
+                              rx={4}
+                              className={`tab-note-bg ${isCurrentBeat ? 'active' : ''} ${technique !== 'normal' ? `technique-${technique}` : ''}`}
                               style={isCurrentBeat ? { fill: highlightColor } : undefined}
                             />
-                            {/* Fret number */}
+                            {/* Fret number with technique */}
                             <text
-                              x={x}
+                              x={x - (displayInfo.suffix ? 4 : 0)}
                               y={y + 4}
                               className={`tab-fret-number ${isCurrentBeat ? 'active' : ''}`}
                             >
-                              {fret}
+                              {displayInfo.main}
                             </text>
+                            {/* Technique suffix */}
+                            {displayInfo.suffix && (
+                              <text
+                                x={x + 6}
+                                y={y + 4}
+                                className={`tab-technique-suffix ${technique}`}
+                              >
+                                {displayInfo.suffix}
+                              </text>
+                            )}
                           </>
                         ) : (
                           /* Dash for empty position */

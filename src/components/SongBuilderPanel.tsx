@@ -20,7 +20,8 @@ interface Props {
 const RIFF_STYLES: { id: RiffStyle; label: string; description: string }[] = [
   { id: 'melodic', label: 'Melodic', description: 'Single-note lines with passing tones' },
   { id: 'arpeggiated', label: 'Arpeggiated', description: 'Broken chord patterns' },
-  { id: 'bass-driven', label: 'Bass-Driven', description: 'Root-focused low-end patterns' }
+  { id: 'bass-driven', label: 'Bass-Driven', description: 'Root-focused low-end patterns' },
+  { id: 'complex', label: 'Complex', description: 'Advanced techniques: slides, bends, hammer-ons, harmonics' }
 ]
 
 export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed }: Props) {
@@ -29,6 +30,7 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentMeasure, setCurrentMeasure] = useState(0)
   const [currentSubdivision, setCurrentSubdivision] = useState(0)
+  const [customBpm, setCustomBpm] = useState<number>(SPEED_TO_BPM[speed])
   const [editingPosition, setEditingPosition] = useState<{
     measureIndex: number
     subdivisionIndex: number
@@ -54,18 +56,22 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
     }
   }, [])
 
+  // Sync customBpm with speed when speed prop changes
+  useEffect(() => {
+    setCustomBpm(SPEED_TO_BPM[speed])
+  }, [speed])
+
   // Generate riff when progression, root, or style changes
   useEffect(() => {
     if (progression && isOpen) {
-      const bpm = SPEED_TO_BPM[speed]
-      const newRiff = generateProgressionRiff(progression, rootNote, riffStyle, bpm)
+      const newRiff = generateProgressionRiff(progression, rootNote, riffStyle, customBpm)
       setRiff(newRiff)
       setCurrentMeasure(0)
       setCurrentSubdivision(0)
       setIsPlaying(false)
       audioEngineRef.current?.stop()
     }
-  }, [progression, rootNote, riffStyle, speed, isOpen])
+  }, [progression, rootNote, riffStyle, customBpm, isOpen])
 
   // Convert riff to tab sheet
   const tabSheet = useMemo<TabSheet | null>(() => {
@@ -76,8 +82,7 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
   // Handle regenerate
   const handleRegenerate = () => {
     if (!progression) return
-    const bpm = SPEED_TO_BPM[speed]
-    const newRiff = generateProgressionRiff(progression, rootNote, riffStyle, bpm)
+    const newRiff = generateProgressionRiff(progression, rootNote, riffStyle, customBpm)
     setRiff(newRiff)
     setCurrentMeasure(0)
     setCurrentSubdivision(0)
@@ -309,8 +314,28 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
                   </button>
                 </div>
 
+                <div className="bpm-control">
+                  <label className="bpm-label">BPM:</label>
+                  <input
+                    type="range"
+                    min="60"
+                    max="240"
+                    step="5"
+                    value={customBpm}
+                    onChange={(e) => setCustomBpm(Number(e.target.value))}
+                    className="bpm-slider"
+                  />
+                  <input
+                    type="number"
+                    min="60"
+                    max="240"
+                    value={customBpm}
+                    onChange={(e) => setCustomBpm(Math.max(60, Math.min(240, Number(e.target.value))))}
+                    className="bpm-input"
+                  />
+                </div>
+
                 <div className="playback-info">
-                  <span className="bpm-display">{SPEED_TO_BPM[speed]} BPM</span>
                   <span className="measure-display">
                     Measure {currentMeasure + 1} / {tabSheet?.measures.length || 0}
                   </span>

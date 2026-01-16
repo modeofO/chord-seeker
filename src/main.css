@@ -2276,6 +2276,58 @@ body {
   pointer-events: none;
 }
 
+/* Technique suffix text */
+.tab-technique-suffix {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  font-weight: 600;
+  fill: var(--color-ink-soft);
+  text-anchor: start;
+  pointer-events: none;
+}
+
+.tab-technique-suffix.slide-up,
+.tab-technique-suffix.slide-down {
+  fill: #3b82f6; /* Blue */
+}
+
+.tab-technique-suffix.bend {
+  fill: #ef4444; /* Red */
+}
+
+.tab-technique-suffix.hammer-on,
+.tab-technique-suffix.pull-off {
+  fill: #8b5cf6; /* Purple */
+}
+
+/* Technique-specific note backgrounds */
+.tab-note-bg.technique-harmonic {
+  fill: rgba(34, 197, 94, 0.2);
+  stroke: #22c55e;
+}
+
+.tab-note-bg.technique-muted {
+  fill: rgba(107, 114, 128, 0.3);
+  stroke: #6b7280;
+}
+
+.tab-note-bg.technique-bend {
+  fill: rgba(239, 68, 68, 0.15);
+  stroke: rgba(239, 68, 68, 0.5);
+}
+
+.tab-note-bg.technique-slide-up,
+.tab-note-bg.technique-slide-down {
+  fill: rgba(59, 130, 246, 0.15);
+  stroke: rgba(59, 130, 246, 0.5);
+}
+
+.tab-note-bg.technique-hammer-on,
+.tab-note-bg.technique-pull-off {
+  fill: rgba(139, 92, 246, 0.15);
+  stroke: rgba(139, 92, 246, 0.5);
+}
+
 .tab-chord-name {
   font-family: var(--font-display);
   font-size: 0.9rem;
@@ -2478,6 +2530,71 @@ body {
   flex-direction: column;
   align-items: flex-end;
   gap: 0.25rem;
+}
+
+.bpm-control {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-ink-ghost);
+  border-radius: 0.375rem;
+}
+
+.bpm-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-ink-soft);
+}
+
+.bpm-slider {
+  width: 100px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--color-border);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.bpm-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--color-accent);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.bpm-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+.bpm-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--color-accent);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.bpm-input {
+  width: 60px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  text-align: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  color: var(--color-ink);
+}
+
+.bpm-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
 }
 
 .bpm-display {

@@ -1,5 +1,5 @@
 import type { GuitarString } from '../types/music'
-import type { ChordRiff, ProgressionRiff, TabMeasure, TabSheet } from '../types/songBuilder'
+import type { ChordRiff, ProgressionRiff, TabMeasure, TabPosition, TabSheet } from '../types/songBuilder'
 import { GUITAR_STRINGS } from '../data/notes'
 import { QUALITY_MAP } from '../data/chordQualities'
 
@@ -15,9 +15,14 @@ export function formatTabMeasure(
     GuitarString,
     (number | null)[]
   >
+  const positionsWithTechnique: Record<GuitarString, TabPosition[]> = {} as Record<
+    GuitarString,
+    TabPosition[]
+  >
 
   GUITAR_STRINGS.forEach((stringId) => {
     positions[stringId] = Array(subdivisions).fill(null)
+    positionsWithTechnique[stringId] = Array(subdivisions).fill(null).map(() => ({ fret: null }))
   })
 
   // Place each note in the correct subdivision
@@ -29,6 +34,11 @@ export function formatTabMeasure(
 
     if (subdivisionIndex >= 0 && subdivisionIndex < subdivisions) {
       positions[note.string][subdivisionIndex] = note.fret
+      positionsWithTechnique[note.string][subdivisionIndex] = {
+        fret: note.fret,
+        technique: note.technique,
+        targetFret: note.targetFret
+      }
     }
   })
 
@@ -41,6 +51,7 @@ export function formatTabMeasure(
     chordName,
     chordDegree: chordRiff.chordDegree,
     positions,
+    positionsWithTechnique,
     subdivisions
   }
 }
