@@ -8,6 +8,7 @@ import { riffToTabSheet } from '../utils/tabFormatter'
 import { SongAudioEngine } from '../audio/songEngine'
 import { SPEED_TO_BPM } from '../types/songBuilder'
 import { QUALITY_MAP } from '../data/chordQualities'
+import { exportRiffToMidi, exportChordsToMidi, downloadMidi, generateMidiFilename } from '../utils/midiExport'
 
 interface Props {
   isOpen: boolean
@@ -215,6 +216,22 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
     onClose()
   }
 
+  // Export riff as MIDI
+  const handleExportRiff = () => {
+    if (!riff) return
+    const midiData = exportRiffToMidi(riff)
+    const filename = generateMidiFilename(riff, 'riff')
+    downloadMidi(midiData, filename)
+  }
+
+  // Export chords as MIDI
+  const handleExportChords = () => {
+    if (!riff) return
+    const midiData = exportChordsToMidi(riff)
+    const filename = generateMidiFilename(riff, 'chords')
+    downloadMidi(midiData, filename)
+  }
+
   // Get current chord info
   const currentChordInfo = useMemo(() => {
     if (!riff || currentMeasure >= riff.chordRiffs.length) return null
@@ -327,6 +344,8 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
                 </div>
               )}
 
+              {/* Bottom controls wrapper */}
+              <div className="song-builder-bottom-controls">
               {/* Playback controls */}
               <div className="song-builder-playback">
                 <div className="playback-controls">
@@ -374,6 +393,22 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
                     Measure {currentMeasure + 1} / {tabSheet?.measures.length || 0}
                   </span>
                 </div>
+              </div>
+
+              {/* Export section */}
+              <div className="song-builder-export">
+                <span className="export-label">Export MIDI:</span>
+                <div className="export-buttons">
+                  <button className="export-btn" onClick={handleExportRiff} title="Download riff as MIDI file">
+                    <span className="export-icon">♪</span>
+                    Riff
+                  </button>
+                  <button className="export-btn" onClick={handleExportChords} title="Download chords as MIDI file">
+                    <span className="export-icon">♫</span>
+                    Chords
+                  </button>
+                </div>
+              </div>
               </div>
             </>
           )}
