@@ -66,6 +66,41 @@ export function CircleOfFifths({ currentRoot, currentQuality, onRootChange, onQu
       <h2 className="circle-title">Circle of Fifths</h2>
       <p className="circle-subtitle">Click any key to change the root note</p>
 
+      {/* Educational description */}
+      <div className="circle-description">
+        <h3 className="circle-description-title">What is the Circle of Fifths?</h3>
+        <div className="circle-description-content">
+          <p>
+            The Circle of Fifths is a fundamental music theory tool that maps the relationships between all 12 keys.
+            Moving clockwise, each key is a perfect fifth interval (7 semitones) higher than the previous one.
+          </p>
+
+          <h4 className="circle-description-subtitle">How to use it:</h4>
+          <ul className="circle-description-list">
+            <li>
+              <strong>Key Relationships:</strong> Adjacent keys share the most notes in common, making them easy to transition between.
+              Keys opposite each other are most distant and create maximum contrast.
+            </li>
+            <li>
+              <strong>Relative Major/Minor:</strong> Each major key (outer ring) pairs with its relative minor (inner ring) —
+              they share the same notes but start on different roots. For example, C major and A minor have no sharps or flats.
+            </li>
+            <li>
+              <strong>Chord Progressions:</strong> Moving clockwise creates tension and resolution. Many popular progressions
+              use adjacent keys (e.g., I-IV-V moves through three consecutive positions: C-F-G).
+            </li>
+            <li>
+              <strong>Modulation:</strong> To change keys smoothly in a song, move to adjacent positions on the circle.
+              The closer they are, the more seamless the transition feels.
+            </li>
+            <li>
+              <strong>Sharps & Flats:</strong> Each clockwise step adds one sharp; each counter-clockwise step adds one flat.
+              C has no sharps/flats, G has one sharp, D has two sharps, and so on.
+            </li>
+          </ul>
+        </div>
+      </div>
+
       <div className="circle-container">
         <svg viewBox="0 0 500 500" className="circle-svg">
           {/* Background circle */}
