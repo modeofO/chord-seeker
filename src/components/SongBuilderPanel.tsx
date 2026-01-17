@@ -9,6 +9,7 @@ import { SongAudioEngine } from '../audio/songEngine'
 import { SPEED_TO_BPM, TRACK_COLORS } from '../types/songBuilder'
 import { QUALITY_MAP } from '../data/chordQualities'
 import { exportRiffToMidi, exportChordsToMidi, downloadMidi, generateMidiFilename, exportTracksToMidi } from '../utils/midiExport'
+import { exportTrackToAscii, exportAllTracksToAscii, downloadTab, generateTabFilename } from '../utils/tabExport'
 
 interface Props {
   isOpen: boolean
@@ -259,6 +260,20 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
     downloadMidi(midiData, filename)
   }
 
+  // Export single track tab
+  const handleExportTrackTab = (track: Track) => {
+    const tabContent = exportTrackToAscii(track)
+    const filename = generateTabFilename(track.name)
+    downloadTab(tabContent, filename)
+  }
+
+  // Export all tracks as tab
+  const handleExportAllTabs = () => {
+    if (tracks.length === 0) return
+    const tabContent = exportAllTracksToAscii(tracks, customBpm)
+    downloadTab(tabContent, `all-tracks-${customBpm}bpm_tab.txt`)
+  }
+
   // Add current riff to a new track
   const handleAddToTrack = (type: TrackType) => {
     if (!riff) return
@@ -493,6 +508,13 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
                           title={`Volume: ${Math.round(track.volume * 100)}%`}
                         />
                         <button
+                          className="btn btn-xs btn-ghost track-btn-tab"
+                          onClick={() => handleExportTrackTab(track)}
+                          title="Export tab"
+                        >
+                          TAB
+                        </button>
+                        <button
                           className="btn btn-xs btn-ghost track-btn-delete"
                           onClick={() => handleRemoveTrack(track.id)}
                           title="Remove track"
@@ -579,22 +601,34 @@ export function SongBuilderPanel({ isOpen, onClose, progression, rootNote, speed
 
               {/* Export section */}
               <div className="song-builder-export">
-                <span className="export-label">Export MIDI:</span>
-                <div className="btn-group">
-                  {tracks.length > 0 && (
-                    <button className="btn btn-primary" onClick={handleExportAllTracks} title="Download all tracks as MIDI file">
-                      All Tracks
+                <div className="export-row">
+                  <span className="export-label">Export MIDI:</span>
+                  <div className="btn-group">
+                    {tracks.length > 0 && (
+                      <button className="btn btn-primary" onClick={handleExportAllTracks} title="Download all tracks as MIDI file">
+                        All Tracks
+                      </button>
+                    )}
+                    <button className="btn btn-secondary" onClick={handleExportRiff} title="Download riff as MIDI file">
+                      <span className="export-icon">♪</span>
+                      Riff
                     </button>
-                  )}
-                  <button className="btn btn-secondary" onClick={handleExportRiff} title="Download riff as MIDI file">
-                    <span className="export-icon">♪</span>
-                    Riff
-                  </button>
-                  <button className="btn btn-secondary" onClick={handleExportChords} title="Download chords as MIDI file">
-                    <span className="export-icon">♫</span>
-                    Chords
-                  </button>
+                    <button className="btn btn-secondary" onClick={handleExportChords} title="Download chords as MIDI file">
+                      <span className="export-icon">♫</span>
+                      Chords
+                    </button>
+                  </div>
                 </div>
+                {tracks.length > 0 && (
+                  <div className="export-row">
+                    <span className="export-label">Export TAB:</span>
+                    <div className="btn-group">
+                      <button className="btn btn-primary" onClick={handleExportAllTabs} title="Download all tracks as ASCII tab">
+                        All Tracks
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               </div>
             </>

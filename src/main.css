@@ -2665,6 +2665,37 @@ body {
   color: #ef4444;
 }
 
+/* Track Tab Export Button */
+.track-btn-tab {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--color-muted);
+  padding: 0.25rem 0.375rem;
+}
+
+.track-btn-tab:hover {
+  color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+/* Export Row */
+.export-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+}
+
+.export-row:not(:last-child) {
+  margin-bottom: 0.75rem;
+}
+
+.song-builder-export {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 /* Responsive for Song Builder */
 @media (max-width: 720px) {
   .song-builder-panel {
