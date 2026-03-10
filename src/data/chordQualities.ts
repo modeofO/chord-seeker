@@ -84,6 +84,33 @@ export const CHORD_QUALITIES: ChordQualityDefinition[] = [
     accent: '#7ac0ff'
   },
   {
+    id: 'dominant9',
+    label: 'Dominant 9',
+    shortLabel: '9',
+    description: 'Dominant 7 extended with the 9th — funky and colorful.',
+    intervals: ['R', '3', '5', 'b7', '9'],
+    color: '#ff8c42',
+    accent: '#ffb87a'
+  },
+  {
+    id: 'major9',
+    label: 'Major 9',
+    shortLabel: 'maj9',
+    description: 'Major 7 topped with the 9th for a lush, jazzy shimmer.',
+    intervals: ['R', '3', '5', '7', '9'],
+    color: '#7b68ee',
+    accent: '#a899ff'
+  },
+  {
+    id: 'minor9',
+    label: 'Minor 9',
+    shortLabel: 'm9',
+    description: 'Minor 7 with the 9th — smooth, soulful, and sophisticated.',
+    intervals: ['R', 'b3', '5', 'b7', '9'],
+    color: '#e06090',
+    accent: '#f090b0'
+  },
+  {
     id: 'diminished',
     label: 'Diminished',
     shortLabel: 'dim',

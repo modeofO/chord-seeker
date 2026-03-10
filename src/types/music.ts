@@ -47,6 +47,9 @@ export type ChordQuality =
   | 'major7'
   | 'minor7'
   | 'add9'
+  | 'dominant9'
+  | 'major9'
+  | 'minor9'
   | 'diminished'
   | 'augmented'
 

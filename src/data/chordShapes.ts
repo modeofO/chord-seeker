@@ -485,6 +485,183 @@ export const CHORD_SHAPES: ChordShapeTemplate[] = [
       showInOpen: false
     }
   },
+  // ── Dominant 9 shapes ──
+  {
+    id: 'e-dom9',
+    label: 'E9 shape',
+    description: 'Funky E-family 9 voicing with the 9th on the G string.',
+    shapeFamily: 'E-family',
+    qualities: ['dominant9'],
+    rootString: 6,
+    rootFret: 0,
+    baseRoot: 'E',
+    isMovable: true,
+    positions: [
+      { string: 5, fret: 2, finger: 2, interval: '5' },
+      { string: 4, fret: 0, finger: 0, interval: 'b7' },
+      { string: 3, fret: 1, finger: 1, interval: '3' },
+      { string: 2, fret: 2, finger: 3, interval: '9' }
+    ],
+    openStrings: [
+      { string: 6, interval: 'R' },
+      { string: 1, interval: 'R' }
+    ],
+    barre: {
+      fromString: 6,
+      toString: 1,
+      fret: 0,
+      finger: 1,
+      engagesFromFret: 1,
+      showInOpen: false
+    }
+  },
+  {
+    id: 'a-dom9',
+    label: 'A9 shape',
+    description: 'Classic A-family 9 chord — staple of funk and R&B.',
+    shapeFamily: 'A-family',
+    qualities: ['dominant9'],
+    rootString: 5,
+    rootFret: 0,
+    baseRoot: 'A',
+    isMovable: true,
+    positions: [
+      { string: 4, fret: 2, finger: 2, interval: '5' },
+      { string: 2, fret: 2, finger: 3, interval: '3' },
+      { string: 1, fret: 2, finger: 4, interval: '9' }
+    ],
+    openStrings: [
+      { string: 5, interval: 'R' },
+      { string: 3, interval: 'b7' }
+    ],
+    mutedStrings: [6],
+    barre: {
+      fromString: 5,
+      toString: 1,
+      fret: 0,
+      finger: 1,
+      engagesFromFret: 1,
+      showInOpen: false
+    }
+  },
+  // ── Major 9 shapes ──
+  {
+    id: 'e-maj9',
+    label: 'E Maj9 shape',
+    description: 'Lush E-family maj9 with the natural 7th and 9th stacked.',
+    shapeFamily: 'E-family',
+    qualities: ['major9'],
+    rootString: 6,
+    rootFret: 0,
+    baseRoot: 'E',
+    isMovable: true,
+    positions: [
+      { string: 5, fret: 2, finger: 3, interval: '5' },
+      { string: 4, fret: 1, finger: 2, interval: '7' },
+      { string: 3, fret: 1, finger: 1, interval: '3' },
+      { string: 2, fret: 2, finger: 4, interval: '9' }
+    ],
+    openStrings: [
+      { string: 6, interval: 'R' },
+      { string: 1, interval: 'R' }
+    ],
+    barre: {
+      fromString: 6,
+      toString: 1,
+      fret: 0,
+      finger: 1,
+      engagesFromFret: 1,
+      showInOpen: false
+    }
+  },
+  {
+    id: 'a-maj9',
+    label: 'A Maj9 shape',
+    description: 'Jazzy A-family maj9 with the 9th singing on top.',
+    shapeFamily: 'A-family',
+    qualities: ['major9'],
+    rootString: 5,
+    rootFret: 0,
+    baseRoot: 'A',
+    isMovable: true,
+    positions: [
+      { string: 4, fret: 2, finger: 2, interval: '5' },
+      { string: 3, fret: 1, finger: 1, interval: '7' },
+      { string: 2, fret: 2, finger: 3, interval: '3' }
+    ],
+    openStrings: [
+      { string: 5, interval: 'R' },
+      { string: 1, interval: '9' }
+    ],
+    mutedStrings: [6],
+    barre: {
+      fromString: 5,
+      toString: 1,
+      fret: 0,
+      finger: 1,
+      engagesFromFret: 1,
+      showInOpen: false
+    }
+  },
+  // ── Minor 9 shapes ──
+  {
+    id: 'e-min9',
+    label: 'E Minor 9 shape',
+    description: 'Soulful Em9 barre with the 9th on the B string.',
+    shapeFamily: 'E-family',
+    qualities: ['minor9'],
+    rootString: 6,
+    rootFret: 0,
+    baseRoot: 'E',
+    isMovable: true,
+    positions: [
+      { string: 5, fret: 2, finger: 2, interval: '5' },
+      { string: 4, fret: 2, finger: 3, interval: 'R' },
+      { string: 2, fret: 3, finger: 4, interval: 'b7' }
+    ],
+    openStrings: [
+      { string: 6, interval: 'R' },
+      { string: 3, interval: 'b3' },
+      { string: 1, interval: '9' }
+    ],
+    barre: {
+      fromString: 6,
+      toString: 1,
+      fret: 0,
+      finger: 1,
+      engagesFromFret: 1,
+      showInOpen: false
+    }
+  },
+  {
+    id: 'a-min9',
+    label: 'A Minor 9 shape',
+    description: 'Smooth Am9 voicing with the flat third and 9th.',
+    shapeFamily: 'A-family',
+    qualities: ['minor9'],
+    rootString: 5,
+    rootFret: 0,
+    baseRoot: 'A',
+    isMovable: true,
+    positions: [
+      { string: 4, fret: 2, finger: 2, interval: '5' },
+      { string: 2, fret: 1, finger: 1, interval: 'b3' },
+      { string: 1, fret: 2, finger: 3, interval: '9' }
+    ],
+    openStrings: [
+      { string: 5, interval: 'R' },
+      { string: 3, interval: 'b7' }
+    ],
+    mutedStrings: [6],
+    barre: {
+      fromString: 5,
+      toString: 1,
+      fret: 0,
+      finger: 1,
+      engagesFromFret: 1,
+      showInOpen: false
+    }
+  },
   {
     id: 'e-diminished',
     label: 'E Diminished shape',

@@ -20,6 +20,9 @@ const QUALITY_SUFFIX: Record<ChordQuality, string> = {
   major7: 'maj7',
   minor7: 'm7',
   add9: 'add9',
+  dominant9: '9',
+  major9: 'maj9',
+  minor9: 'm9',
   diminished: 'dim',
   augmented: 'aug'
 }
